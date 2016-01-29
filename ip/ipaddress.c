@@ -80,6 +80,7 @@ static void usage(void)
 	fprintf(stderr, "IFADDR := PREFIX | ADDR peer PREFIX\n");
 	fprintf(stderr, "          [ broadcast ADDR ] [ anycast ADDR ]\n");
 	fprintf(stderr, "          [ label STRING ] [ scope SCOPE-ID ]\n");
+	fprintf(stderr, "          [ alias STRING ]\n");
 	fprintf(stderr, "SCOPE-ID := [ host | link | global | NUMBER ]\n");
 	fprintf(stderr, "FLAG-LIST := [ FLAG-LIST ] FLAG\n");
 	fprintf(stderr, "FLAG  := [ permanent | dynamic | secondary | primary |\n");
@@ -950,6 +951,8 @@ int print_addrinfo(const struct sockaddr_nl *who, struct nlmsghdr *n,
 	}
 	if (ifa_flags)
 		fprintf(fp, "flags %02x ", ifa_flags);
+	if (rta_tb[IFA_ALIAS])
+		fprintf(fp, "alias %s ", rta_getattr_str(rta_tb[IFA_ALIAS]));
 	if (rta_tb[IFA_LABEL])
 		fprintf(fp, "%s", rta_getattr_str(rta_tb[IFA_LABEL]));
 	if (rta_tb[IFA_CACHEINFO]) {
@@ -1677,6 +1680,9 @@ static int ipaddr_modify(int cmd, int flags, int argc, char **argv)
 		} else if (strcmp(*argv, "dev") == 0) {
 			NEXT_ARG();
 			d = *argv;
+		} else if (strcmp(*argv, "alias") == 0) {
+			NEXT_ARG();
+			addattr_l(&req.n, sizeof(req), IFA_ALIAS, *argv, strlen(*argv)+1);
 		} else if (strcmp(*argv, "label") == 0) {
 			NEXT_ARG();
 			l = *argv;
