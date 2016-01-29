@@ -252,6 +252,7 @@ enum {
 	IFLA_BRPORT_LEARNING_SYNC, /* mac learning sync from device */
 	IFLA_BRPORT_PROXYARP_WIFI, /* proxy ARP for Wi-Fi */
 	IFLA_BRPORT_LOCKED,	/* Locked port, for MAC auth or 802.1X */
+	IFLA_BRPORT_FLUSH,
 	__IFLA_BRPORT_MAX
 };
 #define IFLA_BRPORT_MAX (__IFLA_BRPORT_MAX - 1)

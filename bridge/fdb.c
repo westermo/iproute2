@@ -34,7 +34,7 @@ static void usage(void)
 	fprintf(stderr, "Usage: bridge fdb { add | append | del | replace } ADDR dev DEV {self|master} [ temp ]\n"
 		        "              [router] [ dst IPADDR] [ vlan VID ]\n"
 		        "              [ port PORT] [ vni VNI ] [via DEV]\n");
-	fprintf(stderr, "       bridge fdb {show} [ br BRDEV ] [ brport DEV ]\n");
+	fprintf(stderr, "       bridge fdb { show | flush } [ br BRDEV ] [ brport DEV ]\n");
 	exit(-1);
 }
 
@@ -165,7 +165,7 @@ int print_fdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 	return 0;
 }
 
-static int fdb_show(int argc, char **argv)
+static int fdb_show(int flush, int argc, char **argv)
 {
 	struct {
 		struct nlmsghdr 	n;
@@ -214,6 +214,24 @@ static int fdb_show(int argc, char **argv)
 			return -1;
 		}
 		req.ifm.ifi_index = filter_index;
+	}
+
+	if (flush) {
+		struct rtattr *nest;
+
+		req.n.nlmsg_flags = NLM_F_REQUEST;
+		req.n.nlmsg_type = RTM_SETLINK;
+
+		nest = addattr_nest(&req.n, sizeof(req), IFLA_PROTINFO | NLA_F_NESTED);
+		addattr(&req.n, sizeof(req), IFLA_BRPORT_FLUSH);
+		addattr_nest_end(&req.n, nest);
+
+		if (rtnl_talk(&rth, &req.n, NULL, 0) < 0) {
+			perror("Failed flushing bridge port");
+			exit(1);
+		}
+
+		return 0;
 	}
 
 	if (rtnl_dump_request(&rth, RTM_GETNEIGH, &req.ifm, msg_size) < 0) {
@@ -381,14 +399,16 @@ int do_fdb(int argc, char **argv)
 			return fdb_modify(RTM_NEWNEIGH, NLM_F_CREATE|NLM_F_REPLACE, argc-1, argv+1);
 		if (matches(*argv, "delete") == 0)
 			return fdb_modify(RTM_DELNEIGH, 0, argc-1, argv+1);
+		if (matches(*argv, "flush") == 0)
+			return fdb_show(1, argc-1, argv+1);
 		if (matches(*argv, "show") == 0 ||
 		    matches(*argv, "lst") == 0 ||
 		    matches(*argv, "list") == 0)
-			return fdb_show(argc-1, argv+1);
+			return fdb_show(0, argc-1, argv+1);
 		if (matches(*argv, "help") == 0)
 			usage();
 	} else
-		return fdb_show(0, NULL);
+		return fdb_show(0, 0, NULL);
 
 	fprintf(stderr, "Command \"%s\" is unknown, try \"bridge fdb help\".\n", *argv);
 	exit(-1);
