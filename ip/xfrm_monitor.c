@@ -14,8 +14,7 @@
  * GNU General Public License for more details.
  *
  * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ * along with this program; if not, see <http://www.gnu.org/licenses>.
  */
 /*
  * based on ipmonitor.c
@@ -28,7 +27,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <netinet/in.h>
 #include <linux/xfrm.h>
+
 #include "utils.h"
 #include "xfrm.h"
 #include "ip_common.h"
@@ -37,7 +38,8 @@ static void usage(void) __attribute__((noreturn));
 
 static void usage(void)
 {
-	fprintf(stderr, "Usage: ip xfrm monitor [ all | LISTofXFRM-OBJECTS ]\n");
+	fprintf(stderr, "Usage: ip xfrm monitor [ all | OBJECTS | help ]\n");
+	fprintf(stderr, "OBJECTS := { acquire | expire | SA | aevent | policy | report }\n");
 	exit(-1);
 }
 
@@ -206,7 +208,7 @@ static int xfrm_report_print(const struct sockaddr_nl *who,
 	return 0;
 }
 
-void xfrm_ae_flags_print(__u32 flags, void *arg)
+static void xfrm_ae_flags_print(__u32 flags, void *arg)
 {
 	FILE *fp = (FILE*)arg;
 	fprintf(fp, " (0x%x) ", flags);
@@ -221,6 +223,21 @@ void xfrm_ae_flags_print(__u32 flags, void *arg)
 
 }
 
+static void xfrm_usersa_print(const struct xfrm_usersa_id *sa_id, __u32 reqid, FILE *fp)
+{
+	char buf[256];
+
+	buf[0] = 0;
+	fprintf(fp, "dst %s ",
+		rt_addr_n2a(sa_id->family, sizeof(sa_id->daddr), &sa_id->daddr,
+			    buf, sizeof(buf)));
+
+	fprintf(fp, " reqid 0x%x", reqid);
+
+	fprintf(fp, " protocol %s ", strxf_proto(sa_id->proto));
+	fprintf(fp, " SPI 0x%x", ntohl(sa_id->spi));
+}
+
 static int xfrm_ae_print(const struct sockaddr_nl *who,
 			     struct nlmsghdr *n, void *arg)
 {
@@ -233,19 +250,42 @@ static int xfrm_ae_print(const struct sockaddr_nl *who,
 	fprintf(fp,"\n\t");
 	memset(abuf, '\0', sizeof(abuf));
 	fprintf(fp, "src %s ", rt_addr_n2a(id->sa_id.family,
-		sizeof(id->saddr), &id->saddr,
-		abuf, sizeof(abuf)));
-	memset(abuf, '\0', sizeof(abuf));
-	fprintf(fp, "dst %s ", rt_addr_n2a(id->sa_id.family,
-		sizeof(id->sa_id.daddr), &id->sa_id.daddr,
-		abuf, sizeof(abuf)));
-	fprintf(fp, " reqid 0x%x", id->reqid);
-	fprintf(fp, " protocol %s ", strxf_proto(id->sa_id.proto));
-	fprintf(fp, " SPI 0x%x", ntohl(id->sa_id.spi));
+					   sizeof(id->saddr), &id->saddr,
+					   abuf, sizeof(abuf)));
+
+	xfrm_usersa_print(&id->sa_id, id->reqid, fp);
 
 	fprintf(fp, "\n");
 	fflush(fp);
 
+	return 0;
+}
+
+static void xfrm_print_addr(FILE *fp, int family, xfrm_address_t *a)
+{
+	char buf[256];
+
+	buf[0] = 0;
+	fprintf(fp, "%s", rt_addr_n2a(family, sizeof(*a), a, buf, sizeof(buf)));
+}
+
+static int xfrm_mapping_print(const struct sockaddr_nl *who,
+			     struct nlmsghdr *n, void *arg)
+{
+	FILE *fp = (FILE*)arg;
+	struct xfrm_user_mapping *map = NLMSG_DATA(n);
+
+	fprintf(fp, "Mapping change ");
+	xfrm_print_addr(fp, map->id.family, &map->old_saddr);
+
+	fprintf(fp, ":%d -> ", ntohs(map->old_sport));
+	xfrm_print_addr(fp, map->id.family, &map->new_saddr);
+	fprintf(fp, ":%d\n\t", ntohs(map->new_sport));
+
+	xfrm_usersa_print(&map->id, map->reqid, fp);
+
+	fprintf(fp, "\n");
+	fflush(fp);
 	return 0;
 }
 
@@ -284,6 +324,9 @@ static int xfrm_accept_msg(const struct sockaddr_nl *who,
 		return 0;
 	case XFRM_MSG_NEWAE:
 		xfrm_ae_print(who, n, arg);
+		return 0;
+	case XFRM_MSG_MAPPING:
+		xfrm_mapping_print(who, n, arg);
 		return 0;
 	default:
 		break;
@@ -336,7 +379,7 @@ int do_xfrm_monitor(int argc, char **argv)
 			groups = 0;
 		} else if (matches(*argv, "help") == 0) {
 			usage();
-		} else {
+		} else if (strcmp(*argv, "all")) {
 			fprintf(stderr, "Argument \"%s\" is unknown, try \"ip xfrm monitor help\".\n", *argv);
 			exit(-1);
 		}
@@ -365,8 +408,6 @@ int do_xfrm_monitor(int argc, char **argv)
 		}
 		return rtnl_from_file(fp, xfrm_accept_msg, (void*)stdout);
 	}
-
-	//ll_init_map(&rth);
 
 	if (rtnl_open_byproto(&rth, groups, NETLINK_XFRM) < 0)
 		exit(1);

@@ -29,15 +29,22 @@
 #include "utils.h"
 #include "tc_util.h"
 #include "tc_common.h"
+#include "namespace.h"
 
 int show_stats = 0;
 int show_details = 0;
 int show_raw = 0;
 int show_pretty = 0;
+int show_graph = 0;
 
+int batch_mode = 0;
 int resolve_hosts = 0;
 int use_iec = 0;
 int force = 0;
+bool use_names = false;
+
+static char *conf_file;
+
 struct rtnl_handle rth;
 
 static void *BODY = NULL;	/* cached handle dlopen(NULL) */
@@ -183,27 +190,26 @@ static void usage(void)
 {
 	fprintf(stderr, "Usage: tc [ OPTIONS ] OBJECT { COMMAND | help }\n"
 			"       tc [-force] -batch filename\n"
-	                "where  OBJECT := { qdisc | class | filter | action | monitor }\n"
-	                "       OPTIONS := { -s[tatistics] | -d[etails] | -r[aw] | -p[retty] | -b[atch] [filename] }\n");
+	                "where  OBJECT := { qdisc | class | filter | action | monitor | exec }\n"
+	                "       OPTIONS := { -s[tatistics] | -d[etails] | -r[aw] | -p[retty] | -b[atch] [filename] | "
+			"-n[etns] name |\n"
+			"                    -nm | -nam[es] | { -cf | -conf } path }\n");
 }
 
 static int do_cmd(int argc, char **argv)
 {
 	if (matches(*argv, "qdisc") == 0)
 		return do_qdisc(argc-1, argv+1);
-
 	if (matches(*argv, "class") == 0)
 		return do_class(argc-1, argv+1);
-
 	if (matches(*argv, "filter") == 0)
 		return do_filter(argc-1, argv+1);
-
 	if (matches(*argv, "actions") == 0)
 		return do_action(argc-1, argv+1);
-
 	if (matches(*argv, "monitor") == 0)
 		return do_tcmonitor(argc-1, argv+1);
-
+	if (matches(*argv, "exec") == 0)
+		return do_exec(argc-1, argv+1);
 	if (matches(*argv, "help") == 0) {
 		usage();
 		return 0;
@@ -220,6 +226,7 @@ static int batch(const char *name)
 	size_t len = 0;
 	int ret = 0;
 
+	batch_mode = 1;
 	if (name && strcmp(name, "-") != 0) {
 		if (freopen(name, "r", stdin) == NULL) {
 			fprintf(stderr, "Cannot open file \"%s\" for reading: %s\n",
@@ -262,8 +269,7 @@ static int batch(const char *name)
 int main(int argc, char **argv)
 {
 	int ret;
-	int do_batching = 0;
-	char *batchfile = NULL;
+	char *batch_file = NULL;
 
 	while (argc > 1) {
 		if (argv[1][0] != '-')
@@ -277,6 +283,8 @@ int main(int argc, char **argv)
 			++show_raw;
 		} else if (matches(argv[1], "-pretty") == 0) {
 			++show_pretty;
+		} else if (matches(argv[1], "-graph") == 0) {
+			show_graph = 1;
 		} else if (matches(argv[1], "-Version") == 0) {
 			printf("tc utility, iproute2-ss%s\n", SNAPSHOT);
 			return 0;
@@ -287,11 +295,22 @@ int main(int argc, char **argv)
 			return 0;
 		} else if (matches(argv[1], "-force") == 0) {
 			++force;
-		} else 	if (matches(argv[1], "-batch") == 0) {
-			do_batching = 1;
-			if (argc > 2)
-				batchfile = argv[2];
+		} else if (matches(argv[1], "-batch") == 0) {
 			argc--;	argv++;
+			if (argc <= 1)
+				usage();
+			batch_file = argv[1];
+		} else if (matches(argv[1], "-netns") == 0) {
+			NEXT_ARG();
+			if (netns_switch(argv[1]))
+				return -1;
+		} else if (matches(argv[1], "-names") == 0 ||
+				matches(argv[1], "-nm") == 0) {
+			use_names = true;
+		} else if (matches(argv[1], "-cf") == 0 ||
+				matches(argv[1], "-conf") == 0) {
+			NEXT_ARG();
+			conf_file = argv[1];
 		} else {
 			fprintf(stderr, "Option \"%s\" is unknown, try \"tc -help\".\n", argv[1]);
 			return -1;
@@ -299,8 +318,8 @@ int main(int argc, char **argv)
 		argc--;	argv++;
 	}
 
-	if (do_batching)
-		return batch(batchfile);
+	if (batch_file)
+		return batch(batch_file);
 
 	if (argc <= 1) {
 		usage();
@@ -313,8 +332,17 @@ int main(int argc, char **argv)
 		exit(1);
 	}
 
+	if (use_names && cls_names_init(conf_file)) {
+		ret = -1;
+		goto Exit;
+	}
+
 	ret = do_cmd(argc-1, argv+1);
+Exit:
 	rtnl_close(&rth);
+
+	if (use_names)
+		cls_names_uninit();
 
 	return ret;
 }
