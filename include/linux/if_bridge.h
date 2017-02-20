@@ -186,6 +186,7 @@ struct br_mdb_entry {
 		union {
 			__be32	ip4;
 			struct in6_addr ip6;
+			__u8 any[ETH_ALEN];
 		} u;
 		__be16		proto;
 	} addr;

@@ -13,6 +13,7 @@
 #include <linux/if_ether.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <netinet/ether.h>
 
 #include "libnetlink.h"
 #include "br_common.h"
@@ -56,6 +57,11 @@ static void print_mdb_entry(FILE *f, int ifindex, struct br_mdb_entry *e)
 		fprintf(f, "dev %s port %s grp %s %s\n", ll_index_to_name(ifindex),
 			ll_index_to_name(e->ifindex),
 			inet_ntop(AF_INET, &e->addr.u.ip4, abuf, sizeof(abuf)),
+			(e->state & MDB_PERMANENT) ? "permanent" : "temp");
+	else if (e->addr.proto == htons(ETH_P_ANY))
+		fprintf(f, "dev %s port %s grp %s %s\n", ll_index_to_name(ifindex),
+			ll_index_to_name(e->ifindex),
+			ether_ntoa_r(e->addr.u.any, abuf),
 			(e->state & MDB_PERMANENT) ? "permanent" : "temp");
 	else
 		fprintf(f, "dev %s port %s grp %s %s\n", ll_index_to_name(ifindex),
@@ -215,8 +221,15 @@ static int mdb_modify(int cmd, int flags, int argc, char **argv)
 
 	if (!inet_pton(AF_INET, grp, &entry.addr.u.ip4)) {
 		if (!inet_pton(AF_INET6, grp, &entry.addr.u.ip6)) {
-			fprintf(stderr, "Invalid address \"%s\"\n", grp);
-			return -1;
+			struct ether_addr *mac = NULL;
+			mac = ether_aton(grp);
+			if (!mac) {
+				fprintf(stderr, "Invalid address \"%s\"\n", grp);
+				return -1;
+			}
+			/* ether_addr_copy(entry.addr.u.any, mac); */
+			memcpy(entry.addr.u.any, mac, ETH_ALEN);
+			entry.addr.proto = htons(ETH_P_ANY);
 		} else
 			entry.addr.proto = htons(ETH_P_IPV6);
 	} else
