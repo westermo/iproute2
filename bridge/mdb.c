@@ -58,10 +58,11 @@ static void print_mdb_entry(FILE *f, int ifindex, struct br_mdb_entry *e)
 			ll_index_to_name(e->ifindex),
 			inet_ntop(AF_INET, &e->addr.u.ip4, abuf, sizeof(abuf)),
 			(e->state & MDB_PERMANENT) ? "permanent" : "temp");
-	else if (e->addr.proto == htons(ETH_P_ANY))
+	else if (e->addr.proto == htons(ETH_P_ALL))
 		fprintf(f, "dev %s port %s grp %s %s\n", ll_index_to_name(ifindex),
 			ll_index_to_name(e->ifindex),
-			ether_ntoa_r(e->addr.u.any, abuf),
+			ll_addr_n2a(e->addr.u.mac, ETH_ALEN,
+				    ll_index_to_type(e->ifindex), abuf, sizeof(abuf)),
 			(e->state & MDB_PERMANENT) ? "permanent" : "temp");
 	else
 		fprintf(f, "dev %s port %s grp %s %s\n", ll_index_to_name(ifindex),
@@ -227,9 +228,9 @@ static int mdb_modify(int cmd, int flags, int argc, char **argv)
 				fprintf(stderr, "Invalid address \"%s\"\n", grp);
 				return -1;
 			}
-			/* ether_addr_copy(entry.addr.u.any, mac); */
-			memcpy(entry.addr.u.any, mac, ETH_ALEN);
-			entry.addr.proto = htons(ETH_P_ANY);
+			/* ether_addr_copy(entry.addr.u.mac, mac); */
+			memcpy(entry.addr.u.mac, mac, ETH_ALEN);
+			entry.addr.proto = htons(ETH_P_ALL);
 		} else
 			entry.addr.proto = htons(ETH_P_IPV6);
 	} else
