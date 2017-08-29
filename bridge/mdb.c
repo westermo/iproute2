@@ -15,6 +15,7 @@
 #include <string.h>
 #include <arpa/inet.h>
 
+#include <netinet/ether.h>
 #include "libnetlink.h"
 #include "br_common.h"
 #include "rt_names.h"
@@ -125,9 +126,21 @@ static void print_mdb_entry(FILE *f, int ifindex, const struct br_mdb_entry *e,
 	if (filter_vlan && e->vid != filter_vlan)
 		return;
 
-	af = e->addr.proto == htons(ETH_P_IP) ? AF_INET : AF_INET6;
-	src = af == AF_INET ? (const void *)&e->addr.u.ip4 :
-			      (const void *)&e->addr.u.ip6;
+	if (e->addr.proto == htons(ETH_P_IP)) {
+		af = AF_INET;
+		src = (const void *)&e->addr.u.ip4;
+	}
+	else if (e->addr.proto == htons(ETH_P_ALL)) {
+		af = AF_INET;
+		src = (const void *)&e->addr.u.mac;
+	}
+	else if (e->addr.proto == htons(ETH_P_IPV6)) {
+		af = AF_INET6;
+		src = (const void *)&e->addr.u.ip6;
+	} else {
+		af = AF_INET;
+		src = (const void *)&e->addr.u.ip4;
+	}
 	dev = ll_index_to_name(ifindex);
 
 	open_json_object(NULL);
@@ -142,7 +155,9 @@ static void print_mdb_entry(FILE *f, int ifindex, const struct br_mdb_entry *e,
 
 	print_color_string(PRINT_ANY, ifa_family_color(af),
 			    "grp", " %s ",
-			    inet_ntop(af, src, abuf, sizeof(abuf)));
+			    	e->addr.proto == htons(ETH_P_ALL) ?
+					ll_addr_n2a(e->addr.u.mac, ETH_ALEN, ll_index_to_type(e->ifindex), abuf, sizeof(abuf)) :
+					inet_ntop(af, src, abuf, sizeof(abuf)));
 
 	print_string(PRINT_ANY, "state", " %s ",
 			   (e->state & MDB_PERMANENT) ? "permanent" : "temp");
@@ -365,8 +380,14 @@ static int mdb_modify(int cmd, int flags, int argc, char **argv)
 
 	if (!inet_pton(AF_INET, grp, &entry.addr.u.ip4)) {
 		if (!inet_pton(AF_INET6, grp, &entry.addr.u.ip6)) {
-			fprintf(stderr, "Invalid address \"%s\"\n", grp);
-			return -1;
+			struct ether_addr *mac = NULL;
+			mac = ether_aton(grp);
+			if (!mac) {
+				fprintf(stderr, "Invalid address \"%s\"\n", grp);
+				return -1;
+			}
+			memcpy(entry.addr.u.mac, mac, ETH_ALEN);
+			entry.addr.proto = htons(ETH_P_ALL);
 		} else
 			entry.addr.proto = htons(ETH_P_IPV6);
 	} else
