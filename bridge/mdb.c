@@ -13,6 +13,7 @@
 #include <linux/if_ether.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <netinet/ether.h>
 
 #include "libnetlink.h"
 #include "br_common.h"
@@ -94,13 +95,25 @@ static void print_mdb_entry(FILE *f, int ifindex, struct br_mdb_entry *e,
 
 	if (filter_vlan && e->vid != filter_vlan)
 		return;
-	af = e->addr.proto == htons(ETH_P_IP) ? AF_INET : AF_INET6;
-	src = af == AF_INET ? (const void *)&e->addr.u.ip4 :
-			      (const void *)&e->addr.u.ip6;
+	if (e->addr.proto == htons(ETH_P_IP)) {
+		af = AF_INET;
+		src = (const void *)&e->addr.u.ip4;
+	}
+	else if (e->addr.proto == htons(ETH_P_ALL)) {
+		af = AF_INET;
+		src = (const void *)&e->addr.u.mac;
+	}
+	else if (e->addr.proto == htons(ETH_P_IPV6)) {
+		af = AF_INET6;
+		src = (const void *)&e->addr.u.ip6;
+	}
+
 	if (n->nlmsg_type == RTM_DELMDB)
 		fprintf(f, "Deleted ");
 	fprintf(f, "dev %s port %s grp %s %s %s", ll_index_to_name(ifindex),
-		ll_index_to_name(e->ifindex),
+		ll_index_to_name(e->ifindex), e->addr.proto == htons(ETH_P_ALL) ?
+		ll_addr_n2a(e->addr.u.mac, ETH_ALEN,
+			    ll_index_to_type(e->ifindex), abuf, sizeof(abuf)) :
 		inet_ntop(af, src, abuf, sizeof(abuf)),
 		(e->state & MDB_PERMANENT) ? "permanent" : "temp",
 		(e->flags & MDB_FLAGS_OFFLOAD) ? "offload" : "");
@@ -288,8 +301,14 @@ static int mdb_modify(int cmd, int flags, int argc, char **argv)
 
 	if (!inet_pton(AF_INET, grp, &entry.addr.u.ip4)) {
 		if (!inet_pton(AF_INET6, grp, &entry.addr.u.ip6)) {
-			fprintf(stderr, "Invalid address \"%s\"\n", grp);
-			return -1;
+			struct ether_addr *mac = NULL;
+			mac = ether_aton(grp);
+			if (!mac) {
+				fprintf(stderr, "Invalid address \"%s\"\n", grp);
+				return -1;
+			}
+			memcpy(entry.addr.u.mac, mac, ETH_ALEN);
+			entry.addr.proto = htons(ETH_P_ALL);
 		} else
 			entry.addr.proto = htons(ETH_P_IPV6);
 	} else
