@@ -35,6 +35,7 @@ enum {
 	IFA_FLAGS,
 	IFA_RT_PRIORITY,  /* u32, priority/metric for prefix route */
 	IFA_TARGET_NETNSID,
+	IFA_ALIAS,
 	__IFA_MAX,
 };
 
