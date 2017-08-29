@@ -54,6 +54,9 @@ static const char *state_n2a(unsigned int s)
 	if (s & NUD_NOARP)
 		return "static";
 
+	if (s & NUD_FAILED)
+		return "locked";
+
 	if (s & NUD_STALE)
 		return "stale";
 
@@ -101,7 +104,8 @@ int print_fdb(const struct sockaddr_nl *who, struct nlmsghdr *n, void *arg)
 	bool fdb_flags = false;
 	const char *state_s;
 
-	if (n->nlmsg_type != RTM_NEWNEIGH && n->nlmsg_type != RTM_DELNEIGH) {
+	if (n->nlmsg_type != RTM_NEWNEIGH && n->nlmsg_type != RTM_DELNEIGH
+	    && n->nlmsg_type != RTM_LCKNEIGH) {
 		fprintf(stderr, "Not RTM_NEWNEIGH: %08x %08x %08x\n",
 			n->nlmsg_len, n->nlmsg_type, n->nlmsg_flags);
 		return 0;

@@ -100,7 +100,7 @@ static int accept_msg(const struct sockaddr_nl *who,
 		return 0;
 	}
 	if (n->nlmsg_type == RTM_NEWNEIGH || n->nlmsg_type == RTM_DELNEIGH ||
-	    n->nlmsg_type == RTM_GETNEIGH) {
+	    n->nlmsg_type == RTM_GETNEIGH || n->nlmsg_type == RTM_LCKNEIGH) {
 		if (preferred_family) {
 			struct ndmsg *r = NLMSG_DATA(n);
 
