@@ -669,6 +669,9 @@ struct tcamsg {
 	unsigned char	tca_family;
 	unsigned char	tca__pad1;
 	unsigned short	tca__pad2;
+	int             tca_ifindex;
+	__u32           tca_parent;
+	char            tca_kind[32];
 };
 #define TA_RTA(r)  ((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct tcamsg))))
 #define TA_PAYLOAD(n) NLMSG_PAYLOAD(n,sizeof(struct tcamsg))
