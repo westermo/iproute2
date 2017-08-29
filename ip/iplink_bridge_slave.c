@@ -32,6 +32,7 @@ static void print_explain(FILE *f)
 		"                        [ root_block {on | off} ]\n"
 		"                        [ learning {on | off} ]\n"
 		"                        [ flood {on | off} ]\n"
+		"                        [ locked {on | off} ]\n"
 		"                        [ proxy_arp {on | off} ]\n"
 		"                        [ proxy_arp_wifi {on | off} ]\n"
 		"                        [ mcast_router MULTICAST_ROUTER ]\n"
@@ -195,6 +196,10 @@ static void bridge_slave_print_opt(struct link_util *lu, FILE *f,
 	if (tb[IFLA_BRPORT_MCAST_FLOOD])
 		print_onoff(f, "mcast_flood",
 			rta_getattr_u8(tb[IFLA_BRPORT_MCAST_FLOOD]));
+
+	if (tb[IFLA_BRPORT_LOCKED])
+		print_onoff(f, "locked",
+			    rta_getattr_u8(tb[IFLA_BRPORT_LOCKED]));
 }
 
 static void bridge_slave_parse_on_off(char *arg_name, char *arg_val,
@@ -261,6 +266,10 @@ static int bridge_slave_parse_opt(struct link_util *lu, int argc, char **argv,
 			NEXT_ARG();
 			bridge_slave_parse_on_off("flood", *argv, n,
 						  IFLA_BRPORT_UNICAST_FLOOD);
+		} else if (matches(*argv, "locked") == 0) {
+			NEXT_ARG();
+			bridge_slave_parse_on_off("locked", *argv, n,
+						  IFLA_BRPORT_LOCKED);
 		} else if (matches(*argv, "mcast_flood") == 0) {
 			NEXT_ARG();
 			bridge_slave_parse_on_off("mcast_flood", *argv, n,

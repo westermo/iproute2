@@ -198,6 +198,9 @@ int print_linkinfo(const struct sockaddr_nl *who,
 				if (prtb[IFLA_BRPORT_MCAST_FLOOD])
 					print_onoff(fp, "mcast_flood",
 						    rta_getattr_u8(prtb[IFLA_BRPORT_MCAST_FLOOD]));
+				if (prtb[IFLA_BRPORT_LOCKED])
+					print_onoff(fp, "locked",
+						    rta_getattr_u8(prtb[IFLA_BRPORT_LOCKED]));
 			}
 		} else
 			print_portstate(fp, rta_getattr_u8(tb[IFLA_PROTINFO]));
@@ -230,6 +233,7 @@ static void usage(void)
 	fprintf(stderr,	"                               [ learning {on | off} ]\n");
 	fprintf(stderr,	"                               [ learning_sync {on | off} ]\n");
 	fprintf(stderr,	"                               [ flood {on | off} ]\n");
+	fprintf(stderr,	"                               [ locked {on | off} ]\n");
 	fprintf(stderr,	"                               [ mcast_flood {on | off} ]\n");
 	fprintf(stderr, "                               [ hwmode {vepa | veb} ]\n");
 	fprintf(stderr, "                               [ self ] [ master ]\n");
@@ -269,6 +273,7 @@ static int brlink_modify(int argc, char **argv)
 	__s8 learning = -1;
 	__s8 learning_sync = -1;
 	__s8 flood = -1;
+	__s8 locked = -1;
 	__s8 mcast_flood = -1;
 	__s8 hairpin = -1;
 	__s8 bpdu_guard = -1;
@@ -312,6 +317,10 @@ static int brlink_modify(int argc, char **argv)
 		} else if (strcmp(*argv, "flood") == 0) {
 			NEXT_ARG();
 			if (!on_off("flood", &flood, *argv))
+				return -1;
+		} else if (strcmp(*argv, "locked") == 0) {
+			NEXT_ARG();
+			if (!on_off("locked", &locked, *argv))
 				return -1;
 		} else if (strcmp(*argv, "mcast_flood") == 0) {
 			NEXT_ARG();
@@ -397,6 +406,8 @@ static int brlink_modify(int argc, char **argv)
 	if (learning_sync >= 0)
 		addattr8(&req.n, sizeof(req), IFLA_BRPORT_LEARNING_SYNC,
 			 learning_sync);
+	if (locked >= 0)
+		addattr8(&req.n, sizeof(req), IFLA_BRPORT_LOCKED, locked);
 
 	if (cost > 0)
 		addattr32(&req.n, sizeof(req), IFLA_BRPORT_COST, cost);

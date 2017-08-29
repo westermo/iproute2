@@ -42,6 +42,7 @@ bridge \- show / manipulate bridge addresses and devices
 .BR learning " { " on " | " off " } ] [ "
 .BR learning_sync " { " on " | " off " } ] [ "
 .BR flood " { " on " | " off " } ] [ "
+.BR locked " { " on " | " off " } ] [ "
 .BR hwmode " { " vepa " | " veb " } ] [ "
 .BR mcast_flood " { " on " | " off " } ] [ "
 .BR self " ] [ " master " ]"
@@ -305,6 +306,17 @@ bridge FDB.
 .TP
 .BR "flooding on " or " flooding off "
 Controls whether a given port will flood unicast traffic for which there is no FDB entry. By default this flag is on.
+
+.TP
+.BR "locked on " or " locked off "
+Controls whether unknown frames ingressing a given port will be dropped
+or not.  When locked is disabled, normal bridge processing occurs. When
+enabled the bridge FDB is queried for the frame's source address,
+ingressing port and VID. Matching frames are allowed entry and processed
+further by the bridge. This can be used to set up simple access control
+lists, for MAC based port authentication or IEEE 802.1X. For 1X it is
+required to have an authenticator process EAP frames before adding the
+MAC to the bridge's FDB. By default this flag is off.
 
 .TP
 .BI hwmode
