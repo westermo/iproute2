@@ -161,7 +161,7 @@ print_nat(struct action_util *au, FILE * f, struct rtattr *arg)
 	}
 	sel = RTA_DATA(tb[TCA_NAT_PARMS]);
 
-	len = ffs(sel->mask);
+	len = ffs(ntohl(sel->mask));
 	len = len ? 33 - len : 0;
 
 	fprintf(f, " nat %s %s/%d %s %s", sel->flags & TCA_NAT_FLAG_EGRESS ?
