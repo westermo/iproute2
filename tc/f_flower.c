@@ -1049,6 +1049,13 @@ static int flower_parse_opt(struct filter_util *qu, char *handle,
 				return -1;
 			}
 			continue;
+		} else if (matches(*argv, "police") == 0) {
+			NEXT_ARG();
+			if (parse_police(&argc, &argv, TCA_FLOWER_POLICE, n)) {
+				fprintf(stderr, "Illegal \"police\"\n");
+				return -1;
+			}
+			continue;
 		} else if (strcmp(*argv, "help") == 0) {
 			explain();
 			return -1;
@@ -1593,6 +1600,11 @@ static int flower_print_opt(struct filter_util *qu, FILE *f,
 
 	if (tb[TCA_FLOWER_ACT])
 		tc_print_action(f, tb[TCA_FLOWER_ACT], 0);
+
+	if (tb[TCA_FLOWER_POLICE]) {
+	        fprintf(f, "\n");
+		tc_print_police(f, tb[TCA_FLOWER_POLICE]);
+	}
 
 	return 0;
 }
