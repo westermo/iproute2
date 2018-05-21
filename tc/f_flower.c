@@ -1208,10 +1208,10 @@ static void flower_print_ip_attr(const char *name, struct rtattr *key_attr,
 
 	done = sprintf(out, "0x%x", rta_getattr_u8(key_attr));
 	if (mask_attr)
-		sprintf(out + done, "/%x", rta_getattr_u8(mask_attr));
+		sprintf(out + done, "/0x%x", rta_getattr_u8(mask_attr));
 
 	print_string(PRINT_FP, NULL, "%s  ", _SL_);
-	sprintf(namefrm, "%s %%s", name);
+	sprintf(namefrm, "\n  %s %%s", name);
 	print_string(PRINT_ANY, name, namefrm, out);
 }
 
