@@ -5296,6 +5296,26 @@ static int cmd_region_show(struct dl *dl)
 	return err;
 }
 
+static int cmd_region_trigger(struct dl *dl)
+{
+	struct nlmsghdr *nlh;
+	uint16_t flags = NLM_F_REQUEST | NLM_F_ACK;
+	int err;
+
+	nlh = mnlg_msg_prepare(dl->nlg, DEVLINK_CMD_REGION_TRIGGER, flags);
+
+	if (dl_argc(dl) > 0) {
+		err = dl_argv_parse_put(nlh, dl, DL_OPT_HANDLE_REGION, 0);
+		if (err)
+			return err;
+	}
+
+	pr_out_section_start(dl, "regions");
+	err = _mnlg_socket_sndrcv(dl->nlg, nlh, NULL, NULL);
+	pr_out_section_end(dl);
+	return err;
+}
+
 static int cmd_region_snapshot_del(struct dl *dl)
 {
 	struct nlmsghdr *nlh;
@@ -5395,6 +5415,7 @@ static void cmd_region_help(void)
 	pr_err("       devlink region del DEV/REGION snapshot SNAPSHOT_ID\n");
 	pr_err("       devlink region dump DEV/REGION [ snapshot SNAPSHOT_ID ]\n");
 	pr_err("       devlink region read DEV/REGION [ snapshot SNAPSHOT_ID ] address ADDRESS length LENGTH\n");
+	pr_err("       devlink region trigger DEV/REGION\n");
 }
 
 static int cmd_region(struct dl *dl)
@@ -5407,6 +5428,9 @@ static int cmd_region(struct dl *dl)
 	} else if (dl_argv_match(dl, "show")) {
 		dl_arg_inc(dl);
 		return cmd_region_show(dl);
+	} else if (dl_argv_match(dl, "trigger")) {
+		dl_arg_inc(dl);
+		return cmd_region_trigger(dl);
 	} else if (dl_argv_match(dl, "del")) {
 		dl_arg_inc(dl);
 		return cmd_region_snapshot_del(dl);
