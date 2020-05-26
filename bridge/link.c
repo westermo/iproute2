@@ -143,6 +143,9 @@ static void print_protinfo(FILE *fp, struct rtattr *attr)
 		if (prtb[IFLA_BRPORT_UNICAST_FLOOD])
 			print_onoff(fp, "flood",
 				    rta_getattr_u8(prtb[IFLA_BRPORT_UNICAST_FLOOD]));
+		if (prtb[IFLA_BRPORT_BCAST_FLOOD])
+			print_onoff(fp, "bcast_flood",
+				    rta_getattr_u8(prtb[IFLA_BRPORT_BCAST_FLOOD]));
 		if (prtb[IFLA_BRPORT_MCAST_FLOOD])
 			print_onoff(fp, "mcast_flood",
 				    rta_getattr_u8(prtb[IFLA_BRPORT_MCAST_FLOOD]));
@@ -263,6 +266,7 @@ static void usage(void)
 		"                               [ learning {on | off} ]\n"
 		"                               [ learning_sync {on | off} ]\n"
 		"                               [ flood {on | off} ]\n"
+		"                               [ bcast_flood {on | off} ]\n"
 		"                               [ mcast_flood {on | off} ]\n"
 		"                               [ mcast_to_unicast {on | off} ]\n"
 		"                               [ neigh_suppress {on | off} ]\n"
@@ -310,6 +314,7 @@ static int brlink_modify(int argc, char **argv)
 	__s8 learning_sync = -1;
 	__s8 flood = -1;
 	__s8 vlan_tunnel = -1;
+	__s8 bcast_flood = -1;
 	__s8 mcast_flood = -1;
 	__s8 mcast_to_unicast = -1;
 	__s8 isolated = -1;
@@ -355,6 +360,10 @@ static int brlink_modify(int argc, char **argv)
 		} else if (strcmp(*argv, "flood") == 0) {
 			NEXT_ARG();
 			if (!on_off("flood", &flood, *argv))
+				return -1;
+		} else if (strcmp(*argv, "bcast_flood") == 0) {
+			NEXT_ARG();
+			if (!on_off("bcast_flood", &bcast_flood, *argv))
 				return -1;
 		} else if (strcmp(*argv, "mcast_flood") == 0) {
 			NEXT_ARG();
@@ -460,6 +469,9 @@ static int brlink_modify(int argc, char **argv)
 		addattr8(&req.n, sizeof(req), IFLA_BRPORT_PROTECT, root_block);
 	if (flood >= 0)
 		addattr8(&req.n, sizeof(req), IFLA_BRPORT_UNICAST_FLOOD, flood);
+	if (bcast_flood >= 0)
+		addattr8(&req.n, sizeof(req), IFLA_BRPORT_BCAST_FLOOD,
+			 bcast_flood);
 	if (mcast_flood >= 0)
 		addattr8(&req.n, sizeof(req), IFLA_BRPORT_MCAST_FLOOD,
 			 mcast_flood);
